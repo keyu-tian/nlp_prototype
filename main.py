@@ -12,6 +12,7 @@ from sklearn.metrics import classification_report
 from torch.nn.parallel.distributed import DistributedDataParallel
 from torch.optim import AdamW
 
+from adv import FGM
 from cfg import parse_cfg
 from data import read_train_xlsx, NUM_CLASSES, get_dataloader
 from dist import TorchDistManager
@@ -62,7 +63,7 @@ def main_process(exp_root, cfg, dist, loggers):
         tune=cfg.is_tuning_hp,
         dr=cfg.dropout_rate,
         bs=cfg.batch_size, ep=cfg.epochs,
-        lr=cfg.lr, wd=cfg.wd, ls=cfg.ls_ratio, clp=cfg.grad_clip,
+        lr=cfg.lr, wd=cfg.wd, ls=cfg.smooth_ratio, clp=cfg.grad_clip,
         fgm=cfg.fgm, ema=cfg.ema_mom,
         pr=0, rem=0, beg_t=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     )
@@ -121,11 +122,9 @@ def build_op(model, lr, wd):
 
 
 def train_model(exp_root, cfg, dist, loggers):
-    # todo: mix-up
     lg, st_lg, tb_lg = loggers
     
     tokenizer, model = get_tok_model(cfg.dropout_rate)
-
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.dev_idx], output_device=dist.dev_idx)
     
     tr_texts, tr_labels, va_texts, va_labels = read_train_xlsx(cfg.is_tuning_hp)
@@ -134,6 +133,7 @@ def train_model(exp_root, cfg, dist, loggers):
     tr_sp, tr_ld = get_dataloader(dist, tr_texts, tr_labels, tokenizer, train=True, bs=cfg.batch_size)
     
     ema = EMA(model, cfg.ema_mom)
+    fgm = FGM(model, cfg.fgm)
     crit = LabelSmoothFocalLossV2(NUM_CLASSES, cfg.smooth_ratio, cfg.alpha, cfg.gamma).cuda()
     
     # todo: frozen
@@ -161,17 +161,17 @@ def train_model(exp_root, cfg, dist, loggers):
         
         ep_start_t = time.time()
         last_t = time.time()
-        for it, (inp, tar) in enumerate(tr_ld):
+        for it, (inp, msk, tar) in enumerate(tr_ld):
             it_str = f'%{len(str(tr_iters))}d'
             it_str %= it + 1
             it_str = f'it[{it_str}/{tr_iters}]'
             cur_iter = it + ep * tr_iters
             data_t = time.time()
             
-            inp, tar = inp.cuda(non_blocking=True), tar.cuda(non_blocking=True)
+            inp, msk, tar = inp.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
             cuda_t = time.time()
             
-            logits = model(inp)
+            logits = model(inp, msk)
             loss = crit(logits, tar)
             forw_t = time.time()
             
@@ -180,6 +180,14 @@ def train_model(exp_root, cfg, dist, loggers):
             
             orig_norm = float(torch.nn.utils.clip_grad_norm_(all_params, float(cfg.grad_clip)))
             clip_t = time.time()
+
+            if fgm.open():
+                fgm.attack()
+                op.zero_grad() # 如果不想累加梯度，就把这里的注释取消
+                logits = model(inp, msk)
+                loss = crit(logits, tar)
+                loss.backward()
+                fgm.restore()
             
             sche_lr = adjust_learning_rate(op, cur_iter, max_iter, cfg.lr)
             actual_lr = sche_lr * min(1., float(cfg.grad_clip) / orig_norm)
@@ -190,7 +198,7 @@ def train_model(exp_root, cfg, dist, loggers):
             ema.step(model, cur_iter + 1)
             
             logging = cur_iter == max_iter - 1 or cur_iter % te_freq == 0
-            if logging or orig_norm > 15 or cur_iter < tr_iters:
+            if logging or orig_norm > 10 or cur_iter < tr_iters:
                 tb_lg.add_scalars('opt/lr', {'sche': sche_lr, 'actu': actual_lr}, cur_iter)
                 tb_lg.add_scalars('opt/norm', {'orig': orig_norm, 'clip': cfg.grad_clip}, cur_iter)
             
