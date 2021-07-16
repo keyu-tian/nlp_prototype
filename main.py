@@ -7,8 +7,6 @@ from pprint import pformat
 import numpy as np
 import colorama
 import torch
-import torch.nn.functional as F
-from sklearn.metrics import classification_report
 from torch.nn.parallel.distributed import DistributedDataParallel
 from torch.optim import AdamW
 
@@ -20,6 +18,7 @@ from ema import EMA
 from log import create_loggers
 from loss import LabelSmoothFocalLossV2
 from model import get_tok_model
+from test import eval_model
 from utils import TopKHeap, adjust_learning_rate, AverageMeter, master_echo
 
 
@@ -69,27 +68,6 @@ def main_process(exp_root, cfg, dist, loggers):
     )
     
     train_model(exp_root, cfg, dist, loggers)
-
-
-@torch.no_grad()
-def eval_model(va_ld, model: torch.nn.Module):
-    tr = model.training
-    model.train(False)
-    tot_tar, tot_pred, tot_loss, tot_item = [], [], 0., 0
-    for (inp, msk, tar) in va_ld:
-        bs = inp.shape[0]
-        inp, msk, tar = inp.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
-        logits = model(inp, msk)
-        tot_tar.append(tar), tot_pred.append(logits.argmax(dim=1))
-        tot_loss += F.cross_entropy(logits, tar).item() * bs
-        tot_item += bs
-    model.train(tr)
-    
-    tot_tar = torch.cat(tot_tar).cpu().numpy()
-    tot_pred = torch.cat(tot_pred).cpu().numpy()
-    res = classification_report(tot_tar, tot_pred, output_dict=True)['macro avg']
-    
-    return 100 * res['precision'], 100 * res['recall'], 100 * res['f1-score'], tot_loss / tot_item
 
 
 def get_parameter_names(model, forbidden_layer_types):
@@ -206,7 +184,7 @@ def train_model(exp_root, cfg, dist, loggers):
             ema.step(model, cur_iter + 1)
             
             logging = cur_iter == max_iter - 1 or cur_iter % te_freq == 0
-            if logging or orig_norm > 10 or cur_iter < tr_iters:
+            if logging or orig_norm > 8 or cur_iter < tr_iters:
                 tb_lg.add_scalars('opt/lr', {'sche': sche_lr, 'actu': actual_lr}, cur_iter)
                 tb_lg.add_scalars('opt/norm', {'orig': orig_norm, 'clip': cfg.grad_clip}, cur_iter)
             
