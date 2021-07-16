@@ -58,7 +58,7 @@ def labels_to_strs(labels) -> List[str]:  # todo: 去掉torch
 
 def read_train_xlsx(is_tuning_hyper_parameters: bool):
     full_train = not is_tuning_hyper_parameters
-    all_df = pd.read_excel(train_file, sheet_name=None, header=None)
+    all_df = pd.read_excel(train_file, engine='openpyxl', sheet_name=None, header=None)
     keys = sorted(list(all_df.keys()))
     keys[0], keys[3] = keys[3], keys[0]
     assert keys == CLS_KEYS
@@ -87,16 +87,16 @@ def read_train_xlsx(is_tuning_hyper_parameters: bool):
 
 
 def read_test_xlsx():
-    test_df = pd.read_excel(test_file)
+    test_df = pd.read_excel(test_file, engine='openpyxl')
     test_texts = [pre_process(s) for s in test_df['title']]
     return test_texts
 
 
 def save_test_xlsx(labels):
     assert len(labels) == 12735
-    test_df: pd.DataFrame = pd.read_excel(test_file)
+    test_df: pd.DataFrame = pd.read_excel(test_file, engine='openpyxl')
     test_df['channelName'] = labels_to_strs(labels)
-    test_df.to_excel(save_file, sheet_name='类别', index=False)
+    test_df.to_excel(save_file, engine='openpyxl', sheet_name='类别', index=False)
 
 
 def __get_inp_mask_tar(tokenizer, texts: List[str], labels: List[int] = None):
