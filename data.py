@@ -108,7 +108,7 @@ def __get_inp_mask_tar(tokenizer, texts: List[str], labels: List[int] = None):
         labels = torch.zeros(input_ids.shape[0], dtype=torch.long)
     else:
         labels = torch.tensor(labels, dtype=torch.long)
-    labels = labels.reshape(-1, 1).long()
+    labels = labels.reshape(-1).long()
     
     return input_ids, attention_mask, labels
 
