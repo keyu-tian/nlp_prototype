@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import DistributedSampler
 
-train_file = 'train.xlsx'
-test_file = 'test.xlsx'
-save_file = '结果.xlsx'
+train_file = '../../train.xlsx'
+test_file = '../../test.xlsx'
+save_file = '../../结果.xlsx'
 
 
 def pre_process(title: str):
