@@ -7,7 +7,7 @@ from torch.utils.data import DistributedSampler
 
 train_file = '../../train.xlsx'
 test_file = '../../test.xlsx'
-save_file = '../../结果.xlsx'
+save_file = '../../result.xlsx'
 
 
 def pre_process(title: str):
