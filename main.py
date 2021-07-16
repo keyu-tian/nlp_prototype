@@ -42,7 +42,7 @@ def main():
     dist = TorchDistManager(args.exp_dirname, 'auto', 'auto')
     loggers = create_loggers(prj_root, sh_root, exp_root, dist)
     
-    cfg = parse_cfg(args.cfg, dist.world_size, dist.rank)
+    cfg = parse_cfg(args.cfg)
     if dist.is_master():
         try:
             main_process(exp_root, cfg, dist, loggers)
@@ -128,10 +128,10 @@ def train_model(exp_root, cfg, dist, loggers):
 
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.dev_idx], output_device=dist.dev_idx)
     
-    cfg.batch_size //= dist.world_size
     tr_texts, tr_labels, va_texts, va_labels = read_train_xlsx(cfg.is_tuning_hp)
+    _, va_ld = get_dataloader(dist, va_texts, va_labels, tokenizer, train=True, bs=cfg.batch_size * 2)
+    cfg.batch_size //= dist.world_size
     tr_sp, tr_ld = get_dataloader(dist, tr_texts, tr_labels, tokenizer, train=True, bs=cfg.batch_size)
-    _, va_ld = get_dataloader(dist, va_texts, va_labels, tokenizer, train=True, bs=cfg.batch_size)
     
     ema = EMA(model, cfg.ema_mom)
     crit = LabelSmoothFocalLossV2(NUM_CLASSES, cfg.smooth_ratio, cfg.alpha, cfg.gamma).cuda()
