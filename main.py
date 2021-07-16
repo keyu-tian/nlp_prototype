@@ -37,7 +37,7 @@ def main():
     exp_root = os.path.join(sh_root, args.exp_dirname)
     os.chdir(args.main_py_rel_path)
     prj_root = os.getcwd()
-    os.chdir(sh_root)
+    # os.chdir(sh_root)
     
     dist = TorchDistManager(args.exp_dirname, 'auto', 'auto')
     loggers = create_loggers(prj_root, sh_root, exp_root, dist)
