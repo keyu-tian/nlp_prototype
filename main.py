@@ -189,6 +189,14 @@ def train_model(exp_root, cfg, dist, loggers):
                 loss.backward()
                 fgm.restore()
             
+            if cur_iter % 30 == 0:
+                preds = logits.detach().argmax(dim=1)
+                tr_acc = 100. * preds.eq(tar).sum().item() / tar.shape[0]
+                tr_loss = loss.item()
+                
+                tb_lg.add_scalar('tr/acc', tr_acc, cur_iter)
+                tb_lg.add_scalar('tr/loss', tr_loss, cur_iter)
+            
             sche_lr = adjust_learning_rate(op, cur_iter, max_iter, cfg.lr)
             actual_lr = sche_lr * min(1., float(cfg.grad_clip) / orig_norm)
             op.step()
@@ -241,9 +249,6 @@ def train_model(exp_root, cfg, dist, loggers):
                 tb_lg.add_scalars('va/rec', {'ema': va_rec_ema}, cur_iter)
                 tb_lg.add_scalar('va/loss', va_loss, cur_iter)
                 tb_lg.add_scalars('va/loss', {'ema': va_loss_ema}, cur_iter)
-                
-                tb_lg.add_scalar('tr/acc', tr_acc, cur_iter)
-                tb_lg.add_scalar('tr/loss', tr_loss, cur_iter)
                 
                 st_lg.log(
                     pr=(cur_iter + 1) / max_iter,
