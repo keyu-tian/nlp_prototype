@@ -1,4 +1,5 @@
 from transformers import BertTokenizer, BertModel
+import os
 
 import torch
 import torch.nn as nn
@@ -24,8 +25,8 @@ class MacBertCls(nn.Module):
 
 
 def get_tok_model(dropout_rate):
-    model_str = "luhua/chinese_pretrain_mrc_macbert_large"
-    tokenizer = BertTokenizer.from_pretrained(model_str)
-    extractor = BertModel.from_pretrained(model_str)
+    ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'luhua', 'chinese_pretrain_mrc_macbert_large'))
+    tokenizer = BertTokenizer.from_pretrained(ckpt_path)
+    extractor = BertModel.from_pretrained(ckpt_path)
 
     return tokenizer, MacBertCls(extractor, NUM_CLASSES, dropout_rate)
