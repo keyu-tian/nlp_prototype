@@ -38,10 +38,9 @@ class STLogger:
 class STListener:
     ST_TAGS = [
         'tune',
-        'vc', 'nowd',
     ]
     
-    def __init__(self, exp_dir_abs_path, api_token='543ff680370a2257856e1facd0471fed1f238c80', sheet_name='main'):
+    def __init__(self, exp_dir_abs_path, api_token='e5d0b6f80aa309ae6e12f435323c105e7b24da85', sheet_name='main'):
         self.exp_dir_abs_path = exp_dir_abs_path
         self.log_path = os.path.join(exp_dir_abs_path, ST_LOG_FILENAME)
         self.term_path = exp_dir_abs_path + '.terminate'

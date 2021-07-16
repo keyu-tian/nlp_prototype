@@ -76,10 +76,10 @@ def eval_model(va_ld, model: torch.nn.Module):
     tr = model.training
     model.train(False)
     tot_tar, tot_pred, tot_loss, tot_item = [], [], 0., 0
-    for (inp, tar) in va_ld:
+    for (inp, msk, tar) in va_ld:
         bs = inp.shape[0]
-        inp, tar = inp.cuda(non_blocking=True), tar.cuda(non_blocking=True)
-        logits = model(inp)
+        inp, msk, tar = inp.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
+        logits = model(inp, msk)
         tot_tar.append(tar), tot_pred.append(logits.argmax(dim=1))
         tot_loss += F.cross_entropy(logits, tar).item() * bs
         tot_item += bs
