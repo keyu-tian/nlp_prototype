@@ -118,7 +118,7 @@ def build_op(model, lr, wd):
         "params": [p for n, p in model.named_parameters() if n not in decay_parameters and p.requires_grad],
         "weight_decay": 0.0,
     }]
-    return AdamW(pg, lr, wd)
+    return AdamW(pg, lr=lr, weight_decay=wd)
 
 
 def train_model(exp_root, cfg, dist, loggers):
