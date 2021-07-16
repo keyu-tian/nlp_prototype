@@ -1,0 +1,17 @@
+*.swp
+*.pyc
+__pycache__
+*.tar
+**/exp-*
+checkpoint*
+ckpt*
+meta_ckpt
+events*
+meta_events
+log*.txt
+.idea
+temp
+plot*
+err.txt
+seatable_rid.json
+*.terminate

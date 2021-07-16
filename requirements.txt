@@ -1,0 +1,8 @@
+numpy
+pandas
+xlrd
+openpyxl
+colorama
+tqdm
+sklearn
+
