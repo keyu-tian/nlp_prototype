@@ -13,6 +13,6 @@ gamma: 2
 lr: 2e-5 # 5e-5/3e-6
 wd: 0.01
 
-grad_clip: 4
+grad_clip: 1.5
 fgm: 0
 ema_mom: 0.99
