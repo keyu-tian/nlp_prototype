@@ -9,7 +9,7 @@ from data import NUM_CLASSES
 class MacBertCls(torch.nn.Module):
     def __init__(self, extractor, num_classes, dropout_rate=0.4):
         super(MacBertCls, self).__init__()
-        self.bert = extractor
+        self.bert: BertModel = extractor
         
         if dropout_rate > 1e-3:
             self.dropout = torch.nn.Dropout(dropout_rate)
@@ -18,8 +18,12 @@ class MacBertCls(torch.nn.Module):
         self.svm = torch.nn.Linear(self.bert.config.hidden_size, num_classes)
         self.sigmoid = torch.nn.Sigmoid()
     
-    def forward(self, input_ids, attention_mask):
-        x = self.bert(input_ids=input_ids, attention_mask=attention_mask)['pooler_output']
+    def forward(self, input_ids, token_type_ids, attention_mask):
+        if token_type_ids is None:
+            x = self.bert(input_ids=input_ids, attention_mask=attention_mask)['pooler_output']
+        else:
+            x = self.bert(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)['pooler_output']
+        
         if self.dropout is not None:
             x = self.dropout(x)
         logits = self.svm(x)

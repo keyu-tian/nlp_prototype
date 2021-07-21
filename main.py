@@ -105,10 +105,10 @@ def train_model(exp_root, cfg, dist, loggers):
     tokenizer, model = get_tok_model(cfg.dropout_rate)
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.dev_idx], output_device=dist.dev_idx)
     
-    tr_texts, tr_labels, va_texts, va_labels = read_train_xlsx(cfg.is_tuning_hp)
-    _, va_ld = get_dataloader(dist, va_texts, va_labels, tokenizer, train=True, bs=cfg.batch_size * 2)
+    tr_contents, tr_titles, tr_labels, va_contents, va_titles, va_labels = read_train_xlsx(cfg.is_tuning_hp)
+    _, va_ld = get_dataloader(dist, cfg.using_content, va_contents, va_titles, va_labels, tokenizer, train=True, bs=cfg.batch_size * 2)
     cfg.batch_size //= dist.world_size
-    tr_sp, tr_ld = get_dataloader(dist, tr_texts, tr_labels, tokenizer, train=True, bs=cfg.batch_size)
+    tr_sp, tr_ld = get_dataloader(dist, cfg.using_content, tr_contents, tr_titles, tr_labels, tokenizer, train=True, bs=cfg.batch_size)
     
     ema = EMA(model, cfg.ema_mom)
     fgm = FGM(model, cfg.fgm)
@@ -139,17 +139,22 @@ def train_model(exp_root, cfg, dist, loggers):
         
         ep_start_t = time.time()
         last_t = time.time()
-        for it, (inp, msk, tar) in enumerate(tr_ld):
+        for it, data in enumerate(tr_ld):
             it_str = f'%{len(str(tr_iters))}d'
             it_str %= it + 1
             it_str = f'it[{it_str}/{tr_iters}]'
             cur_iter = it + ep * tr_iters
             data_t = time.time()
-            
-            inp, msk, tar = inp.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
+
+            if cfg.using_content:
+                inp, tok, msk, tar = data
+                inp, tok, msk, tar = inp.cuda(non_blocking=True), tok.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
+            else:
+                inp, msk, tar = data
+                inp, tok, msk, tar = inp.cuda(non_blocking=True), None, msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
             cuda_t = time.time()
             
-            logits = model(inp, msk)
+            logits = model(inp, tok, msk)
             loss = crit(logits, tar)
             forw_t = time.time()
             
@@ -162,7 +167,7 @@ def train_model(exp_root, cfg, dist, loggers):
             if fgm.open():
                 fgm.attack()
                 op.zero_grad() # 如果不想累加梯度，就把这里的注释取消
-                logits = model(inp, msk)
+                logits = model(inp, tok, msk)
                 loss = crit(logits, tar)
                 loss.backward()
                 fgm.restore()
@@ -193,12 +198,12 @@ def train_model(exp_root, cfg, dist, loggers):
                 tr_acc = 100. * preds.eq(tar).sum().item() / tar.shape[0]
                 tr_loss = loss.item()
                 
-                va_acc, va_rec, va_af1, va_loss = eval_model(va_ld, model)
+                va_acc, va_rec, va_af1, va_loss = eval_model(cfg.using_content, va_ld, model)
                 topk_af1s.push_q(va_af1)
                 best_af1 = max(best_af1, va_af1)
                 
                 ema.load_ema(model)
-                va_acc_ema, va_rec_ema, va_af1_ema, va_loss_ema = eval_model(va_ld, model)
+                va_acc_ema, va_rec_ema, va_af1_ema, va_loss_ema = eval_model(cfg.using_content, va_ld, model)
                 best_af1_ema = max(best_af1_ema, va_af1_ema)
                 if best_af1_ema > saved_af1:
                     saved_af1 = best_af1_ema
