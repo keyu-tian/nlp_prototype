@@ -53,7 +53,7 @@ def main():
     model.load_state_dict(torch.load(sys.argv[1], map_location='cpu'))
     
     _, te_ld = get_dataloader(None, cfg.using_content, test_contents, test_titles, te_labels, tokenizer, False, 128)
-    tot_pred = eval_model(False, te_ld, model, is_test=True)
+    tot_pred = eval_model(cfg.using_content, te_ld, model, is_test=True)
     save_test_xlsx(tot_pred)
     
 
