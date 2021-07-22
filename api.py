@@ -34,7 +34,7 @@ class NewsClassifier(object):
     
     def initialize(self):
         self.tokenizer = BertTokenizer.from_pretrained(self.ckpt_path)
-        self.model = _MacBertCls(BertModel.from_pretrained(self.ckpt_path), NewsClassifier.NUM_CLASSES, 0)
+        self.model = _MacBertCls(BertModel.from_pretrained(self.ckpt_path), NewsClassifier.NUM_CLASSES)
         self.model.svm.load_state_dict(torch.load(os.path.join(self.ckpt_path, 'linear.pth'), map_location='cpu'))
         if self.cuda:
             self.model = self.model.cuda()
