@@ -1,23 +1,16 @@
 import os
-import sys
-import time
-import datetime
-from pprint import pprint as pp
-from pprint import pformat as pf
-import numpy as np
+from typing import List
+
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 from transformers import BertTokenizer, BertModel
 
 
 class _MacBertCls(torch.nn.Module):
-    def __init__(self, extractor, num_classes, dropout_rate=0.4):
+    def __init__(self, extractor, num_classes):
         super(_MacBertCls, self).__init__()
         self.bert: BertModel = extractor
         
-        if dropout_rate > 1e-3:
-            self.dropout = torch.nn.Dropout(dropout_rate)
-        else:
-            self.dropout = None
         self.svm = torch.nn.Linear(self.bert.config.hidden_size, num_classes)
         self.sigmoid = torch.nn.Sigmoid()
     
@@ -26,9 +19,6 @@ class _MacBertCls(torch.nn.Module):
             x = self.bert(input_ids=input_ids, attention_mask=attention_mask)['pooler_output']
         else:
             x = self.bert(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)['pooler_output']
-        
-        if self.dropout is not None:
-            x = self.dropout(x)
         logits = self.svm(x)
         return logits
 
@@ -45,17 +35,96 @@ class NewsClassifier(object):
     def initialize(self):
         self.tokenizer = BertTokenizer.from_pretrained(self.ckpt_path)
         self.model = _MacBertCls(BertModel.from_pretrained(self.ckpt_path), NewsClassifier.NUM_CLASSES, 0)
-        ckpt = torch.load(os.path.join(self.ckpt_path, 'ckpt.pth'), map_location='cpu')
-        self.model.load_state_dict()
+        self.model.svm.load_state_dict(torch.load(os.path.join(self.ckpt_path, 'linear.pth'), map_location='cpu'))
         if self.cuda:
             self.model = self.model.cuda()
         self.model.eval()
         for p in self.model.parameters():
             p.requires_grad_(False)
     
-    def infer_for_one_item(self, title: str, content: str) -> str:
+    @torch.no_grad()
+    def infer_one_item(self, title: str, content: str) -> str:
+        title, content = NewsClassifier._pre_process(title=title, content=content)
         data_dict = self.tokenizer([title], [content], padding=True, truncation=False, return_tensors='pt')
         input_ids, token_type_ids, attention_mask = data_dict['input_ids'], data_dict['token_type_ids'], data_dict['attention_mask']
-        self.model(input_ids, token_type_ids, attention_mask)
+        logits = self.model(input_ids, token_type_ids, attention_mask)
+        pred = NewsClassifier.CLS_KEYS[logits[0].argmax().item()]
+        if pred.startswith('其他'):
+            pred = '其他'
+        return pred
+
+    @torch.no_grad()
+    def infer_items(self, titles: List[str], contents: List[str]) -> List[str]:
+        titles, contents = zip(*[NewsClassifier._pre_process(t, c) for t, c in zip(titles, contents)])
+        data_dict = self.tokenizer(titles, contents, padding=True, truncation=False, return_tensors='pt')
+        input_ids, token_type_ids, attention_mask = data_dict['input_ids'], data_dict['token_type_ids'], data_dict['attention_mask']
+        loader = DataLoader(
+            TensorDataset(input_ids, token_type_ids, attention_mask),
+            batch_size=64,
+            shuffle=False,
+            num_workers=2
+        )
+
+        tot_pred = []
+        for inp, tok, msk in loader:
+            if self.cuda:
+                inp, tok, msk = inp.cuda(non_blocking=True), tok.cuda(non_blocking=True), msk.cuda(non_blocking=True)
+            logits = self.model(inp, tok, msk)
+            tot_pred.append(logits.argmax(dim=1))
+        tot_pred = torch.cat(tot_pred).cpu().tolist()
+        return NewsClassifier._labels_to_strs(tot_pred)
+
+    @staticmethod
+    def _pre_process(title: str, content: str):
+        t = title.replace('\xa0', ' ')
+        t = t.replace('#', '')
+        t = t.replace('&', '')
+        t = t.replace('!', '！')
+        t = t.replace('?', '？')
+        t = t.replace(',', '，')
+        t = t.replace(':', '：')
+        t = t.replace(';', '；')
+        t = t.replace('|', ' ')
+        t = t.lower()
+        for i in range(21):
+            t = t.replace(f'({i})', '').replace(f'（{i}）', '')
+        t = ''.join([x.strip() for x in t.split() if len(x.strip()) > 0]).strip()
     
+        c = content.replace('(', '（').replace(')', '）')
+        c = c.replace('[', '（').replace(']', '）')
+        c = c.replace('{', '（').replace('}', '）')
     
+        ls, sta = [], []
+        try:
+            for ch in c:
+                if ch == '（':
+                    sta.append('（')
+                if len(sta) == 0 and ch not in {'\r', '\n', '\t'}:
+                    ls.append(ch)
+                if ch == '）' and len(sta) > 0:
+                    sta.pop()
+        except:
+            print(c)
+            exit(-1)
+        c = ' '.join(''.join(ls).split())[:471-len(t)]
+        return t, c
+    
+    @staticmethod
+    def _labels_to_strs(indices) -> List[str]:
+        labels = []
+        for i in indices:
+            if NewsClassifier.CLS_KEYS[i].startswith('其他'):
+                labels.append('其他')
+            else:
+                labels.append(NewsClassifier.CLS_KEYS[i])
+        return labels
+
+
+if __name__ == '__main__':
+    cls = NewsClassifier('./chinese-macbert-base')
+    cls.initialize()
+    print(cls.infer_one_item('纽约油价飙升', '今日纽约油价飙升啊喂'))
+    print(cls.infer_items(
+        titles=['我是财经新闻标题', '我是体育新闻'],
+        contents=['我是财经新闻正文', '我是体育新闻正文']
+    ))
