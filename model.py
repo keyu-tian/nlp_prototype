@@ -31,7 +31,7 @@ class MacBertCls(torch.nn.Module):
 
 
 def get_tok_model(dropout_rate):
-    ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'luhua', 'chinese_pretrain_mrc_macbert_large'))
+    ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'hfl', 'chinese-macbert-base'))
     tokenizer = BertTokenizer.from_pretrained(ckpt_path)
     extractor = BertModel.from_pretrained(ckpt_path)
 

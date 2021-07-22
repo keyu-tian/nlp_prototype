@@ -161,7 +161,7 @@ def test_data():
     # print(type(ls), type(ls[0]), len(ls), ls[0], ls[-1], sep='\n')
     import os
     from transformers import BertTokenizer
-    ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'luhua', 'chinese_pretrain_mrc_macbert_large'))
+    ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'hfl', 'chinese-macbert-base'))
     tokenizer = BertTokenizer.from_pretrained(ckpt_path)
     train_dict = tokenizer(tr_titles, tr_contents, padding=True, truncation=False, return_tensors="pt")
     val_dict = tokenizer(va_titles, va_contents, padding=True, truncation=False, return_tensors="pt")
