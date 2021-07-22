@@ -41,7 +41,7 @@ def pre_process(content: str, title: str):
     except:
         print(c)
         exit(-1)
-    c = ' '.join(''.join(ls).split())[:460-len(t)]
+    c = ' '.join(''.join(ls).split())[:471-len(t)]
     return c, t
 
 
