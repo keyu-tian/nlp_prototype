@@ -145,13 +145,15 @@ def train_model(exp_root, cfg, dist, loggers):
             it_str = f'it[{it_str}/{tr_iters}]'
             cur_iter = it + ep * tr_iters
             data_t = time.time()
-
+            
             if cfg.using_content:
                 inp, tok, msk, tar = data
                 inp, tok, msk, tar = inp.cuda(non_blocking=True), tok.cuda(non_blocking=True), msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
             else:
                 inp, msk, tar = data
                 inp, tok, msk, tar = inp.cuda(non_blocking=True), None, msk.cuda(non_blocking=True), tar.cuda(non_blocking=True)
+            if cur_iter == 0:
+                lg.info(f'inp.shape={inp.shape}')
             cuda_t = time.time()
             
             logits = model(inp, tok, msk)
