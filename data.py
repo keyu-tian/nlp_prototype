@@ -41,8 +41,8 @@ def pre_process(content: str, title: str):
     except:
         print(c)
         exit(-1)
-    
-    return ' '.join(''.join(ls).split())[:400], t
+    c = ' '.join(''.join(ls).split())[:400]
+    return c, t[:511-len(c)]
 
 
 CLS_KEYS = ['体育', '其他健康', '其他宠物', '其他慈善', '其他政治', '其他文艺', '其他旅游', '其他育儿', '军事', '娱乐', '房产', '教育', '汽车', '游戏', '科技', '财经']
@@ -114,7 +114,6 @@ def read_test_xlsx():
 
 
 def save_test_xlsx(labels):
-    assert len(labels) == 12735
     test_df: pd.DataFrame = pd.read_excel(test_file, engine='openpyxl')
     test_df['channelName'] = labels_to_strs(labels)
     test_df.to_excel(save_file, engine='openpyxl', sheet_name='类别', index=False)
