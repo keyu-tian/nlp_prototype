@@ -126,7 +126,7 @@ def train_model(exp_root, cfg, dist, loggers):
     epoch_speed = AverageMeter(3)
     
     te_freq = max(1, round(tr_iters // 3))
-    saved_path = os.path.join(exp_root, f'rk_{dist.rank}_best_ckpt.pth')
+    saved_path = os.path.join(exp_root, f'best_ckpt.pth')
     loop_start_t = time.time()
     for ep in range(max_ep):
         tr_sp.set_epoch(ep)
@@ -217,7 +217,8 @@ def train_model(exp_root, cfg, dist, loggers):
                 
                 if best_af1 > saved_af1:
                     saved_af1 = best_af1
-                    torch.save(model.module.state_dict(), saved_path)
+                    if dist.is_master():
+                        torch.save(model.module.state_dict(), saved_path)
                 
                 remain_time, finish_time = epoch_speed.time_preds(max_ep - (ep + 1))
                 
