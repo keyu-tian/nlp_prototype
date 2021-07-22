@@ -152,29 +152,28 @@ def get_dataloader(dist, using_content, contents, titles, labels, tokenizer, tra
 
 
 def test_data():
+    global train_file, test_file
     train_file = 'raw_train.xlsx'
     test_file = 'test.xlsx'
     tr_contents, tr_titles, tr_labels, va_contents, va_titles, va_labels = read_train_xlsx(is_tuning_hyper_parameters=False)
     print(f'len(tt)={len(tr_titles)}, tt[-1]={tr_titles[-1]}, len(vt)={len(va_titles)}, vt[-1]={va_titles[-1]}')
-
     test_contents, test_titles = read_test_xlsx()
     # print(type(ls), type(ls[0]), len(ls), ls[0], ls[-1], sep='\n')
-    
     import os
     from transformers import BertTokenizer
     ckpt_path = os.path.abspath(os.path.join(os.path.expanduser('~'), 'huggingface', 'luhua', 'chinese_pretrain_mrc_macbert_large'))
     tokenizer = BertTokenizer.from_pretrained(ckpt_path)
-    
     train_dict = tokenizer(tr_titles, tr_contents, padding=True, truncation=False, return_tensors="pt")
-    test_dict = tokenizer(va_titles, va_contents, padding=True, truncation=False, return_tensors="pt")
-    
-    train_input_ids, test_input_ids = train_dict['input_ids'], test_dict['input_ids']
-    train_token_type_ids, test_token_type_ids = train_dict['token_type_ids'], test_dict['token_type_ids']
-    train_masks, test_masks = train_dict['attention_mask'], test_dict['attention_mask']
-    
-    print(train_input_ids[0].shape)
-    print(train_token_type_ids[0].shape)
-    print(train_masks[0].shape)
+    val_dict = tokenizer(va_titles, va_contents, padding=True, truncation=False, return_tensors="pt")
+    train_input_ids, val_input_ids = train_dict['input_ids'], val_dict['input_ids']
+    train_token_type_ids, val_token_type_ids = train_dict['token_type_ids'], val_dict['token_type_ids']
+    train_masks, val_masks = train_dict['attention_mask'], val_dict['attention_mask']
+    print(train_input_ids.shape)
+    print(train_token_type_ids.shape)
+    print(train_masks.shape)
+    print(val_input_ids.shape)
+    print(val_token_type_ids.shape)
+    print(val_masks.shape)
 
 
 if __name__ == '__main__':
