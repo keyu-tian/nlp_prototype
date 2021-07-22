@@ -41,8 +41,8 @@ def pre_process(content: str, title: str):
     except:
         print(c)
         exit(-1)
-    c = ' '.join(''.join(ls).split())[:400]
-    return c, t[:511-len(c)]
+    c = ' '.join(''.join(ls).split())[:511-len(t)]
+    return c, t
 
 
 CLS_KEYS = ['体育', '其他健康', '其他宠物', '其他慈善', '其他政治', '其他文艺', '其他旅游', '其他育儿', '军事', '娱乐', '房产', '教育', '汽车', '游戏', '科技', '财经']
