@@ -77,5 +77,5 @@ def create_loggers(prj_root, sh_root, exp_root, dist) -> Tuple[logging.Logger, S
     return (
         DistLogger(logger, verbose=dist.is_master()),
         DistLogger(seatable_logger, verbose=dist.is_master()),
-        DistLogger(tensorboard_logger, verbose=dist.is_master()),
+        DistLogger(tensorboard_logger, verbose=True),
     )

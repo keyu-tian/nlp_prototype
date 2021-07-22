@@ -126,7 +126,7 @@ def train_model(exp_root, cfg, dist, loggers):
     epoch_speed = AverageMeter(3)
     
     te_freq = max(1, round(tr_iters // 3))
-    saved_path = os.path.join(exp_root, f'best_ckpt.pth')
+    saved_path = os.path.join(exp_root, f'rk_{dist.rank}_best_ckpt.pth')
     loop_start_t = time.time()
     for ep in range(max_ep):
         tr_sp.set_epoch(ep)
