@@ -106,7 +106,7 @@ def train_model(exp_root, cfg, dist, loggers):
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.dev_idx], output_device=dist.dev_idx)
     
     tr_contents, tr_titles, tr_labels, va_contents, va_titles, va_labels = read_train_xlsx(cfg.is_tuning_hp)
-    _, va_ld = get_dataloader(dist, cfg.using_content, va_contents, va_titles, va_labels, tokenizer, train=True, bs=cfg.batch_size * 2)
+    _, va_ld = get_dataloader(dist, cfg.using_content, va_contents, va_titles, va_labels, tokenizer, train=False, bs=cfg.batch_size * 2)
     cfg.batch_size //= dist.world_size
     tr_sp, tr_ld = get_dataloader(dist, cfg.using_content, tr_contents, tr_titles, tr_labels, tokenizer, train=True, bs=cfg.batch_size)
     
