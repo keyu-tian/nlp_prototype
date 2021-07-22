@@ -1,0 +1,20 @@
+# val acc =
+is_tuning_hp: True
+
+using_content: True
+
+dropout_rate: 0.6
+
+batch_size: 128
+epochs: 100
+
+smooth_ratio: 0.1
+alpha: 0.8
+gamma: 2
+
+lr: 3e-6 # 5e-5/3e-6
+wd: 0.02
+
+grad_clip: 1
+fgm: 0
+ema_mom: 0.99
