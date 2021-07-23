@@ -3,6 +3,7 @@ from typing import List
 
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+from tqdm import tqdm
 from transformers import BertTokenizer, BertModel
 
 
@@ -31,6 +32,8 @@ class NewsClassifier(object):
         self.ckpt_path = os.path.abspath(ckpt_path)
         self.tokenizer, self.model = ..., ...
         self.cuda = torch.cuda.is_available()
+        if self.cuda:
+            _ = torch.empty(10).cuda()
     
     def initialize(self):
         self.tokenizer = BertTokenizer.from_pretrained(self.ckpt_path)
@@ -47,8 +50,10 @@ class NewsClassifier(object):
         title, content = NewsClassifier._pre_process(title=title, content=content)
         data_dict = self.tokenizer([title], [content], padding=True, truncation=False, return_tensors='pt')
         input_ids, token_type_ids, attention_mask = data_dict['input_ids'], data_dict['token_type_ids'], data_dict['attention_mask']
+        if self.cuda:
+            input_ids, token_type_ids, attention_mask = input_ids.cuda(), token_type_ids.cuda(), attention_mask.cuda()
         logits = self.model(input_ids, token_type_ids, attention_mask)
-        pred = NewsClassifier.CLS_KEYS[logits[0].argmax().item()]
+        pred = NewsClassifier.CLS_KEYS[logits[0].cpu().argmax().item()]
         if pred.startswith('其他'):
             pred = '其他'
         return pred
@@ -57,20 +62,24 @@ class NewsClassifier(object):
     def infer_items(self, titles: List[str], contents: List[str]) -> List[str]:
         titles, contents = zip(*[NewsClassifier._pre_process(t, c) for t, c in zip(titles, contents)])
         data_dict = self.tokenizer(titles, contents, padding=True, truncation=False, return_tensors='pt')
+        batch_size = 128 if self.cuda else 4
         input_ids, token_type_ids, attention_mask = data_dict['input_ids'], data_dict['token_type_ids'], data_dict['attention_mask']
         loader = DataLoader(
             TensorDataset(input_ids, token_type_ids, attention_mask),
-            batch_size=64,
+            batch_size=batch_size,
             shuffle=False,
             num_workers=2
         )
 
         tot_pred = []
-        for inp, tok, msk in loader:
+        bar = tqdm(enumerate(loader), unit=f'每{batch_size}条', dynamic_ncols=True)
+        for i, (inp, tok, msk) in bar:
             if self.cuda:
                 inp, tok, msk = inp.cuda(non_blocking=True), tok.cuda(non_blocking=True), msk.cuda(non_blocking=True)
             logits = self.model(inp, tok, msk)
-            tot_pred.append(logits.argmax(dim=1))
+            preds = logits.argmax(dim=1)
+            tot_pred.append(preds)
+            bar.set_postfix_str(f'第{i*batch_size}条/共{input_ids.shape[0]}条，当前类别={NewsClassifier.CLS_KEYS[preds[0].item()]}')
         tot_pred = torch.cat(tot_pred).cpu().tolist()
         return NewsClassifier._labels_to_strs(tot_pred)
 
@@ -125,6 +134,6 @@ if __name__ == '__main__':
     cls.initialize()
     print(cls.infer_one_item('纽约油价飙升', '今日纽约油价飙升啊喂'))
     print(cls.infer_items(
-        titles=['我是财经新闻标题', '我是体育新闻'],
-        contents=['我是财经新闻正文', '我是体育新闻正文']
+        titles=['我是财经新闻标题', '我是体育新闻'*60],
+        contents=['我是财经新闻正文', '我是体育新闻正文'*60],
     ))

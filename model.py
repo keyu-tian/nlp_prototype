@@ -1,6 +1,5 @@
 from transformers import BertTokenizer, BertModel
 import os
-
 import torch
 
 from data import NUM_CLASSES
