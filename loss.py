@@ -22,13 +22,14 @@ class LabelSmoothFocalLoss(torch.nn.Module):
         self.alpha, self.gamma = alpha, gamma
     
     def forward(self, logits: torch.Tensor, targets):
+        prob = F.softmax(logits, dim=1)
+        weight = (1 - prob) ** self.gamma
+        
         one_hot = torch.ones(logits.shape, device=logits.device) * self.v
         one_hot.scatter_(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)
         one_hot *= self.alpha
         one_hot /= one_hot.sum()
         
-        prob = F.softmax(logits, dim=1)
-        weight = (1 - prob) ** self.gamma
         ce_loss = -(one_hot * prob.log())
         
         focal_loss = (weight * ce_loss).sum()
