@@ -11,7 +11,7 @@ class LabelSmoothFocalLoss(torch.nn.Module):
             smooth_ratio = 0.005 * num_classes
         
         if alpha is not None:
-            alpha = alpha.view(-1).unsqueeze(0).contiguous()
+            alpha = torch.tensor(alpha).view(-1).unsqueeze(0).contiguous()
             assert alpha.numel() == num_classes
             alpha /= alpha.sum()
         else:
