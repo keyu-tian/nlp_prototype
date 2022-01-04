@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class LabelSmoothFocalLoss(torch.nn.Module):
     """
     >>> B, NC = 4, 3
-    >>> fl = LabelSmoothFocalLoss(num_classes=NC, smooth_ratio=0.005*NC, alpha=[1, 5, 1], gamma=2)
+    >>> fl = LabelSmoothFocalLoss(num_classes=NC, alpha=[1, 5, 1], gamma=2)
     >>> logits = torch.rand(B, NC)
     >>> targets = torch.randint(NC, size=(B,)).long()
     >>> if torch.cuda.is_available():
@@ -15,13 +15,10 @@ class LabelSmoothFocalLoss(torch.nn.Module):
     >>> loss = fl(logits, targets)
     >>> loss.backward()
     """
-    def __init__(self, num_classes, smooth_ratio=0.05, alpha=None, gamma=2):
+    def __init__(self, num_classes, alpha=None, gamma=2, smoothing=True):
         # standard CE: smooth_ratio=0, alpha=None, gamma=0
         super(LabelSmoothFocalLoss, self).__init__()
-        
-        if smooth_ratio > 0 and num_classes < 10:
-            smooth_ratio = 0.005 * num_classes
-        
+
         if alpha is not None:
             if not isinstance(alpha, torch.Tensor):
                 alpha = torch.tensor(alpha)
@@ -32,7 +29,7 @@ class LabelSmoothFocalLoss(torch.nn.Module):
         else:
             self.alpha = 1
         
-        self.smooth_ratio: float = smooth_ratio
+        self.smooth_ratio: float = min(0.08, num_classes * 0.004) if smoothing else 0
         self.v: float = self.smooth_ratio / num_classes
         self.gamma: float = gamma
         self.register_buffer('ones', torch.ones(1, num_classes) * self.v)
@@ -90,18 +87,20 @@ def __focal_loss(logits, targets, alpha=1, gamma=2):
 
 
 if __name__ == '__main__':
+    torch.set_printoptions(precision=10)
+    
     logits = torch.rand(5, 10)
     targets = torch.randperm(10)[:5]
-    logits[:, 7] += 0
+    logits[:, 7] += -5
     targets[...] = 7
     print(targets)
     
-    print('CE           =', F.cross_entropy(logits, targets), LabelSmoothFocalLoss(10, 0, None, 0)(logits, targets), LabelSmoothFocalLossV2(10, 0, None, 0)(logits, targets))
+    print('CE           =', F.cross_entropy(logits, targets), LabelSmoothFocalLoss(10, None, 0)(logits, targets), LabelSmoothFocalLossV2(10, None, 0)(logits, targets))
     print('CE  + ls0.1  =', _LabelSmoothCELoss(num_classes=10, smooth_ratio=0.1)(logits, targets))
     print('')
     print('FCE          =', __focal_loss(logits, targets))
-    print('FCE + ls0    =', LabelSmoothFocalLoss(num_classes=10, smooth_ratio=0., alpha=[1]*10)(logits, targets))
-    print('FCE2 + ls0   =', LabelSmoothFocalLossV2(num_classes=10, smooth_ratio=0.)(logits, targets))
+    print('FCE + ls0    =', LabelSmoothFocalLoss(num_classes=10, alpha=[1]*10)(logits, targets))
+    print('FCE2 + ls0   =', LabelSmoothFocalLossV2(num_classes=10)(logits, targets))
     print('')
-    print('FCE + ls0.1  =', LabelSmoothFocalLoss(num_classes=10, smooth_ratio=0.1)(logits, targets))
-    print('FCE2 + ls0.1 =', LabelSmoothFocalLossV2(num_classes=10, smooth_ratio=0.1)(logits, targets))
+    print('FCE + ls0.1  =', LabelSmoothFocalLoss(num_classes=10)(logits, targets))
+    print('FCE2 + ls0.1 =', LabelSmoothFocalLossV2(num_classes=10)(logits, targets))
