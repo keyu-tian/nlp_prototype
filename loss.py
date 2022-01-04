@@ -3,6 +3,18 @@ import torch.nn.functional as F
 
 
 class LabelSmoothFocalLoss(torch.nn.Module):
+    """
+    >>> B, NC = 4, 3
+    >>> fl = LabelSmoothFocalLoss(num_classes=NC, smooth_ratio=0.005*NC, alpha=[1, 5, 1], gamma=2)
+    >>> logits = torch.rand(B, NC)
+    >>> targets = torch.randint(NC, size=(B,)).long()
+    >>> if torch.cuda.is_available():
+    >>>     fl, logits, targets = fl.cuda(), logits.cuda(), targets.cuda()
+    >>>
+    >>> logits.requires_grad_(True)
+    >>> loss = fl(logits, targets)
+    >>> loss.backward()
+    """
     def __init__(self, num_classes, smooth_ratio=0.05, alpha=None, gamma=2):
         # standard CE: smooth_ratio=0, alpha=None, gamma=0
         super(LabelSmoothFocalLoss, self).__init__()
@@ -23,14 +35,14 @@ class LabelSmoothFocalLoss(torch.nn.Module):
         self.smooth_ratio: float = smooth_ratio
         self.v: float = self.smooth_ratio / num_classes
         self.gamma: float = gamma
+        self.register_buffer('ones', torch.ones(1, num_classes) * self.v)
     
     def forward(self, logits, targets):
         prob = F.softmax(logits, dim=1)     # (B, C)
         focal = (1 - prob) ** self.gamma    # (B, C)
         
-        one_hot = torch.ones(logits.shape, device=logits.device) * self.v
-        one_hot.scatter_(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)
-        one_hot *= self.alpha
+        one_hot = self.ones.expand(logits.shape)
+        one_hot = self.alpha * one_hot.scatter(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)
         one_hot /= one_hot.sum()            # (B, C)
         
         ce_loss = -(one_hot * prob.log())   # (B, C)
