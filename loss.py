@@ -22,17 +22,17 @@ class LabelSmoothFocalLoss(torch.nn.Module):
         self.alpha, self.gamma = alpha, gamma
     
     def forward(self, logits: torch.Tensor, targets):
-        prob = F.softmax(logits, dim=1)
-        focal = (1 - prob) ** self.gamma
+        prob = F.softmax(logits, dim=1)     # (B, C)
+        focal = (1 - prob) ** self.gamma    # (B, C)
         
         one_hot = torch.ones(logits.shape, device=logits.device) * self.v
         one_hot.scatter_(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)
         one_hot *= self.alpha
-        one_hot /= one_hot.sum()
+        one_hot /= one_hot.sum()            # (B, C)
         
-        ce_loss = -(one_hot * prob.log())
+        ce_loss = -(one_hot * prob.log())   # (B, C)
         
-        focal_loss = (focal * ce_loss).sum()
+        focal_loss = (focal * ce_loss).sum()    # (B, C).sum()
         return focal_loss
 
 
@@ -40,13 +40,13 @@ class LabelSmoothFocalLossV2(LabelSmoothFocalLoss):
     # todo: 这个是没有alpha的
     def forward(self, logits, targets):
         one_hot = torch.ones(logits.shape, device=logits.device) * self.v
-        one_hot.scatter_(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)
+        one_hot.scatter_(1, targets.view(-1, 1), 1 - self.smooth_ratio + self.v)    # (B, C)
         
-        log_prob = F.log_softmax(logits, dim=1)
-        ce_loss = -(one_hot * log_prob).sum(dim=1)
-        weight = (1 - torch.exp(-ce_loss)) ** self.gamma
+        log_prob = F.log_softmax(logits, dim=1)     # (B, C)
+        ce_loss = -(one_hot * log_prob).sum(dim=1)  # (B,)
+        weight = (1 - torch.exp(-ce_loss)) ** self.gamma    # (B,)
         
-        focal_loss = (ce_loss * weight).mean()
+        focal_loss = (ce_loss * weight).mean()      # (B,).mean()
         return focal_loss
 
 
